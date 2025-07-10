@@ -18,7 +18,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install dependencies
+    - name: Cache Chocolatey packages
+      uses: actions/cache@v4
+      with:
+        path: C:\ProgramData\chocolatey\lib
+        key: ${{ runner.os }}-choco-${{ hashFiles('**/CMakeLists.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-choco-
+
+    - name: Install Chocolatey packages
       run: choco install cmake
 
     - name: Configure and build
@@ -37,5 +45,5 @@ jobs:
     - name: Run benchmarks
       run: |
         cd build
-        ./bin/bench_xsalsa
+        ./bin/bench_xsalsa.exe
       shell: bash 
