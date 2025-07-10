@@ -3,6 +3,7 @@
 #include "xsalsa_avx.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 
 
@@ -25,6 +26,14 @@ static inline void init_impl(void)
     } else {
         xsalsa20_scalar_init(&xsalsa20_setup_impl, &xsalsa20_crypt_impl, &xsalsa20_keystream_impl, &xsalsa20_memory_impl);
     }
+}
+
+void xsalsa20_reset_impl(void)
+{
+    xsalsa20_setup_impl = NULL;
+    xsalsa20_crypt_impl = NULL;
+    xsalsa20_keystream_impl = NULL;
+    xsalsa20_memory_impl = NULL;
 }
 
 

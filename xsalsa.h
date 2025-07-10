@@ -130,6 +130,11 @@ int xsalsa20_get_best_impl(void);
 void xsalsa20_force_impl(int impl);
 
 /**
+ * Reset the last selected implementation
+ */
+void xsalsa20_reset_impl(void);
+
+/**
  * Run self-test
  * @return XSALSA_OK if successful
  */

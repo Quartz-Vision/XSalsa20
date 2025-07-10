@@ -91,4 +91,5 @@ int xsalsa20_get_best_impl(void)
 void xsalsa20_force_impl(int impl)
 {
     impl_selected = impl;
+    xsalsa20_reset_impl();
 } 
