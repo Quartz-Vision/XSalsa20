@@ -3,10 +3,6 @@
 
 #include "xsalsa.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 int xsalsa20_setup_avx(xsalsa20_state *st, const unsigned char *key, unsigned long keylen,
                                       const unsigned char *nonce, unsigned long noncelen,
                                       int rounds);
@@ -27,10 +23,5 @@ static inline void xsalsa20_avx_init(xsalsa20_setup_fn *xsalsa20_setup_impl, xsa
     *xsalsa20_memory_impl = xsalsa20_memory_avx;
     #endif
 }
-
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* XSALSA_AVX_H */

@@ -1,11 +1,12 @@
 #include "xsalsa.h"
 #include "xsalsa_scalar.h"
 #include "xsalsa_avx.h"
+#include "xsalsa_avx2.h"
+#include "xsalsa_avx512.h"
+#include "xsalsa_impl_check.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
-
-
 
 /* Function pointers for runtime dispatch */
 static xsalsa20_setup_fn xsalsa20_setup_impl = NULL;
@@ -21,10 +22,21 @@ static inline void init_impl(void)
         return; /* Already initialized */
     }
     
-    if (xsalsa20_get_best_impl() == XSALSA_IMPL_AVX) {
-        xsalsa20_avx_init(&xsalsa20_setup_impl, &xsalsa20_crypt_impl, &xsalsa20_keystream_impl, &xsalsa20_memory_impl);
-    } else {
-        xsalsa20_scalar_init(&xsalsa20_setup_impl, &xsalsa20_crypt_impl, &xsalsa20_keystream_impl, &xsalsa20_memory_impl);
+    int best_impl = xsalsa20_get_best_impl();
+    
+    switch (best_impl) {
+        case XSALSA_IMPL_AVX512:
+            xsalsa20_avx512_init(&xsalsa20_setup_impl, &xsalsa20_crypt_impl, &xsalsa20_keystream_impl, &xsalsa20_memory_impl);
+            break;
+        case XSALSA_IMPL_AVX2:
+            xsalsa20_avx2_init(&xsalsa20_setup_impl, &xsalsa20_crypt_impl, &xsalsa20_keystream_impl, &xsalsa20_memory_impl);
+            break;
+        case XSALSA_IMPL_AVX:
+            xsalsa20_avx_init(&xsalsa20_setup_impl, &xsalsa20_crypt_impl, &xsalsa20_keystream_impl, &xsalsa20_memory_impl);
+            break;
+        default:
+            xsalsa20_scalar_init(&xsalsa20_setup_impl, &xsalsa20_crypt_impl, &xsalsa20_keystream_impl, &xsalsa20_memory_impl);
+            break;
     }
 }
 

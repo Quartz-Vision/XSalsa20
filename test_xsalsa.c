@@ -1,4 +1,5 @@
 #include "xsalsa.h"
+#include "xsalsa_impl_check.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -20,19 +21,32 @@ static const char *plaintext = "Hello, XSalsa20! This is a test message.";
 typedef struct {
     const char *name;
     int impl;
+    bool (*test_availability)(void);
 } impl_test_t;
 
 static const impl_test_t impls[] = {
     #ifdef XSALSA_USE_IMPL_SCALAR
-    { "Scalar", XSALSA_IMPL_SCALAR },
+    { "Scalar", XSALSA_IMPL_SCALAR, NULL },
     #else
-    { "Scalar", -1 },
+    { "Scalar", -1, NULL },
     #endif
 
     #ifdef XSALSA_USE_IMPL_AVX
-    { "AVX", XSALSA_IMPL_AVX },
+    { "AVX", XSALSA_IMPL_AVX, check_avx_support },
     #else
-    { "AVX", -1 },
+    { "AVX", -1, NULL },
+    #endif
+
+    #ifdef XSALSA_USE_IMPL_AVX2
+    { "AVX2", XSALSA_IMPL_AVX2, check_avx2_support },
+    #else
+    { "AVX2", -1 },
+    #endif
+
+    #ifdef XSALSA_USE_IMPL_AVX512
+    { "AVX512", XSALSA_IMPL_AVX512, check_avx512_support },
+    #else
+    { "AVX512", -1 },
     #endif
 };
 
@@ -119,7 +133,7 @@ int run_impl_comparison_tests(void)
     int ret = 0;
 
     for (int i = 0; i < sizeof(impls) / sizeof(impls[0]); i++) {
-        if (impls[i].impl == -1) {
+        if (impls[i].impl == -1 || (impls[i].test_availability && !impls[i].test_availability())) {
             printf("Skipping XSalsa20 %s implementation (not available)\n", impls[i].name);
             continue;
         }
@@ -152,7 +166,7 @@ int main(void)
     int ret = 0;
 
     for (int i = 0; i < sizeof(impls) / sizeof(impls[0]); i++) {
-        if (impls[i].impl == -1) {
+        if (impls[i].impl == -1 || (impls[i].test_availability && !impls[i].test_availability())) {
             printf("Skipping XSalsa20 %s implementation (not available)\n", impls[i].name);
             continue;
         }

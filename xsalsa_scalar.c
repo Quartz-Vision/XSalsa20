@@ -65,7 +65,7 @@
 static const char * const constants = "expand 32-byte k";
 
 /* Internal function: XSalsa20 doubleround (no final addition as in Salsa20) */
-static inline void s_xsalsa20_doubleround(ulong32 *x, int rounds)
+void s_xsalsa20_doubleround(ulong32 *x, int rounds)
 {
    int i;
 
@@ -88,7 +88,7 @@ static void s_salsa20_block(unsigned char *output, const ulong32 *input, int rou
 {
    ulong32 x[16];
    int i;
-   memcpy(x, input, sizeof(x));
+   memcpy((void*)x, (const void*)input, sizeof(x));
    
    for (i = rounds; i > 0; i -= 2) {
       QUARTERROUND( 0, 4, 8,12)
@@ -108,7 +108,7 @@ static void s_salsa20_block(unsigned char *output, const ulong32 *input, int rou
 }
 
 /* Internal function: Zero memory */
-static inline void zeromem(volatile void *out, size_t outlen)
+static void zeromem(volatile void *out, size_t outlen)
 {
    volatile unsigned char *x = (volatile unsigned char *)out;
    while (outlen--) *x++ = 0;

@@ -10,14 +10,18 @@ option(BUILD_SHARED "Build shared library" OFF)
 option(BUILD_STATIC "Build static library" ON)
 option(IMPL_SCALAR "Build scalar implementation" ON)
 option(IMPL_AVX "Build AVX implementation" ON)
+option(IMPL_AVX2 "Build AVX2 implementation" ON)
+option(IMPL_AVX512 "Build AVX-512 implementation" ON)
 
 # Architecture detection
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|i386|i686")
     set(XSALSA_ARCH_X86 TRUE)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
     set(XSALSA_ARCH_ARM TRUE)
-    # Disable AVX on ARM architectures
+    # Disable vector implementations on ARM architectures
     set(IMPL_AVX OFF)
+    set(IMPL_AVX2 OFF)
+    set(IMPL_AVX512 OFF)
 endif()
 
 # Optimization levels
@@ -52,30 +56,6 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
     endif()
 endif()
 
-# Add AVX support only if AVX implementation is enabled and on x86
-if(IMPL_AVX AND XSALSA_ARCH_X86)
-    if(MSVC)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /arch:AVX")
-    else()
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx")
-    endif()
-endif()
-
-# Add preprocessor definitions for implementation selection
-if(IMPL_SCALAR)
-    add_definitions(-DXSALSA_USE_IMPL_SCALAR)
-endif()
-
-if(IMPL_AVX AND XSALSA_ARCH_X86)
-    add_definitions(-DXSALSA_USE_IMPL_AVX)
-endif()
-
-# Add architecture-specific definitions
-if(XSALSA_ARCH_X86)
-    add_definitions(-DXSALSA_ARCH_X86)
-elseif(XSALSA_ARCH_ARM)
-    add_definitions(-DXSALSA_ARCH_ARM)
-endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -85,19 +65,57 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(XSALSA20_SOURCES xsalsa_impl_check.c xsalsa_runtime.c)
 set(XSALSA20_HEADERS xsalsa.h)
 
-if(IMPL_SCALAR)
-    list(APPEND XSALSA20_SOURCES xsalsa_scalar.c)
-    list(APPEND XSALSA20_HEADERS xsalsa_scalar.h)
-endif()
-
-if(IMPL_AVX AND XSALSA_ARCH_X86)
+# Function-specific compilation flags for vector implementations
+if(IMPL_AVX)
+    add_definitions(-DXSALSA_USE_IMPL_AVX)
+    if(MSVC)
+        set(AVX_FLAGS "/arch:AVX")
+    else()
+        set(AVX_FLAGS "-mavx")
+    endif()
     list(APPEND XSALSA20_SOURCES xsalsa_avx.c)
     list(APPEND XSALSA20_HEADERS xsalsa_avx.h)
 endif()
 
+if(IMPL_AVX2)
+    add_definitions(-DXSALSA_USE_IMPL_AVX2)
+    if(MSVC)
+        set(AVX2_FLAGS "/arch:AVX2")
+    else()
+        set(AVX2_FLAGS "-mavx2")
+    endif()
+    list(APPEND XSALSA20_SOURCES xsalsa_avx2.c)
+    list(APPEND XSALSA20_HEADERS xsalsa_avx2.h)
+endif()
+
+if(IMPL_AVX512)
+    add_definitions(-DXSALSA_USE_IMPL_AVX512)
+    if(MSVC)
+        set(AVX512_FLAGS "/arch:AVX512")
+    else()
+        set(AVX512_FLAGS "-mavx512f")
+    endif()
+    list(APPEND XSALSA20_SOURCES xsalsa_avx512.c)
+    list(APPEND XSALSA20_HEADERS xsalsa_avx512.h)
+endif()
+
+if(IMPL_SCALAR)
+    add_definitions(-DXSALSA_USE_IMPL_SCALAR)
+    list(APPEND XSALSA20_SOURCES xsalsa_scalar.c)
+    list(APPEND XSALSA20_HEADERS xsalsa_scalar.h)
+endif()
+
+# Add architecture-specific definitions
+if(XSALSA_ARCH_X86)
+    add_definitions(-DXSALSA_ARCH_X86)
+elseif(XSALSA_ARCH_ARM)
+    add_definitions(-DXSALSA_ARCH_ARM)
+endif()
+
+
 # Ensure at least one implementation is enabled
-if(NOT IMPL_SCALAR AND NOT IMPL_AVX)
-    message(FATAL_ERROR "At least one implementation (IMPL_SCALAR or IMPL_AVX) must be enabled")
+if(NOT IMPL_SCALAR AND NOT IMPL_AVX AND NOT IMPL_AVX2 AND NOT IMPL_AVX512)
+    message(FATAL_ERROR "At least one implementation (IMPL_SCALAR, IMPL_AVX, IMPL_AVX2, or IMPL_AVX512) must be enabled")
 endif()
 
 if(BUILD_STATIC)
@@ -124,6 +142,16 @@ if(BUILD_SHARED)
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>
     )
+endif()
+
+if(IMPL_AVX)
+    set_source_files_properties(xsalsa_avx.c PROPERTIES COMPILE_FLAGS "${AVX_FLAGS}")
+endif()
+if(IMPL_AVX2)
+    set_source_files_properties(xsalsa_avx2.c PROPERTIES COMPILE_FLAGS "${AVX2_FLAGS}")
+endif()
+if(IMPL_AVX512)
+    set_source_files_properties(xsalsa_avx512.c PROPERTIES COMPILE_FLAGS "${AVX512_FLAGS}")
 endif()
 
 if(BUILD_TESTS)

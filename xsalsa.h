@@ -4,10 +4,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* Error codes */
 #define XSALSA_OK 0
 #define XSALSA_ERROR -1
@@ -19,9 +15,8 @@ extern "C" {
 
 #define XSALSA_IMPL_SCALAR 0
 #define XSALSA_IMPL_AVX 1
-
-
-
+#define XSALSA_IMPL_AVX2 2
+#define XSALSA_IMPL_AVX512 3
 
 /* Data types */
 typedef uint32_t ulong32;
@@ -118,18 +113,6 @@ int xsalsa20_memory(const unsigned char *key, unsigned long keylen,
                     unsigned char *dataout);
 
 /**
- * Get the best available implementation
- * @return 1 for AVX, 0 for scalar
- */
-int xsalsa20_get_best_impl(void);
-
-/**
- * Force a specific implementation (for testing)
- * @param impl 0 for scalar, 1 for AVX
- */
-void xsalsa20_force_impl(int impl);
-
-/**
  * Reset the last selected implementation
  */
 void xsalsa20_reset_impl(void);
@@ -139,9 +122,4 @@ void xsalsa20_reset_impl(void);
  * @return XSALSA_OK if successful
  */
 int xsalsa20_test(void);
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* XSALSA_H */ 
