@@ -58,7 +58,11 @@ jobs:
     - name: Run tests
       run: |
         cd build
-        ctest --output-on-failure
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          ctest -C ${{ matrix.build_type }} --output-on-failure
+        else
+          ctest --output-on-failure
+        fi
 
     - name: Run benchmarks
       run: |
@@ -95,7 +99,11 @@ jobs:
     - name: Run tests
       run: |
         cd build
-        ctest --output-on-failure
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          ctest -C ${{ matrix.build_type }} --output-on-failure
+        else
+          ctest --output-on-failure
+        fi
 
     - name: Run benchmarks
       run: |
@@ -140,7 +148,11 @@ jobs:
     - name: Run tests
       run: |
         cd build
-        ctest --output-on-failure
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          ctest -C ${{ matrix.build_type }} --output-on-failure
+        else
+          ctest --output-on-failure
+        fi
 
     - name: Run benchmarks
       run: |
@@ -185,7 +197,11 @@ jobs:
     - name: Run tests
       run: |
         cd build
-        ctest --output-on-failure
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          ctest -C ${{ matrix.build_type }} --output-on-failure
+        else
+          ctest --output-on-failure
+        fi
 
     - name: Run benchmarks
       run: |
