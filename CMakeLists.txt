@@ -11,6 +11,15 @@ option(BUILD_STATIC "Build static library" ON)
 option(IMPL_SCALAR "Build scalar implementation" ON)
 option(IMPL_AVX "Build AVX implementation" ON)
 
+# Architecture detection
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|i386|i686")
+    set(XSALSA_ARCH_X86 TRUE)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+    set(XSALSA_ARCH_ARM TRUE)
+    # Disable AVX on ARM architectures
+    set(IMPL_AVX OFF)
+endif()
+
 # Optimization levels
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -43,8 +52,8 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
     endif()
 endif()
 
-# Add AVX support only if AVX implementation is enabled
-if(IMPL_AVX AND NOT MSVC)
+# Add AVX support only if AVX implementation is enabled and on x86
+if(IMPL_AVX AND XSALSA_ARCH_X86 AND NOT MSVC)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx")
 endif()
 
@@ -53,8 +62,15 @@ if(IMPL_SCALAR)
     add_definitions(-DXSALSA_USE_IMPL_SCALAR)
 endif()
 
-if(IMPL_AVX)
+if(IMPL_AVX AND XSALSA_ARCH_X86)
     add_definitions(-DXSALSA_USE_IMPL_AVX)
+endif()
+
+# Add architecture-specific definitions
+if(XSALSA_ARCH_X86)
+    add_definitions(-DXSALSA_ARCH_X86)
+elseif(XSALSA_ARCH_ARM)
+    add_definitions(-DXSALSA_ARCH_ARM)
 endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -70,7 +86,7 @@ if(IMPL_SCALAR)
     list(APPEND XSALSA20_HEADERS xsalsa_scalar.h)
 endif()
 
-if(IMPL_AVX)
+if(IMPL_AVX AND XSALSA_ARCH_X86)
     list(APPEND XSALSA20_SOURCES xsalsa_avx.c)
     list(APPEND XSALSA20_HEADERS xsalsa_avx.h)
 endif()

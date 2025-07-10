@@ -1,5 +1,3 @@
-#ifdef XSALSA_USE_IMPL_AVX
-
 #include "xsalsa.h"
 #include <immintrin.h>
 #include <string.h>
@@ -540,5 +538,3 @@ int xsalsa20_memory_avx(const unsigned char *key, unsigned long keylen,
    xsalsa20_done(&st);
    return XSALSA_OK;
 } 
-
-#endif /* IMPL_AVX */

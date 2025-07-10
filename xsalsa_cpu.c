@@ -1,9 +1,11 @@
 #include "xsalsa.h"
-#include <cpuid.h>
 #include <stdint.h>
 
 /* CPU feature detection */
 static int impl_selected = -1;  /* -1 = not checked */
+
+#ifdef XSALSA_ARCH_X86
+#include <cpuid.h>
 
 /**
  * Check if CPU supports AVX
@@ -29,6 +31,7 @@ static int check_avx_support(void)
     
     return cpu_has_avx;
 }
+#endif
 
 /**
  * Get the best available implementation

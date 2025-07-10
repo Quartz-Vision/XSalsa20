@@ -1,5 +1,3 @@
-#ifdef XSALSA_USE_IMPL_SCALAR
-
 #include "xsalsa.h"
 #include <string.h>
 
@@ -323,5 +321,3 @@ int xsalsa20_memory_scalar(const unsigned char *key, unsigned long keylen,
    xsalsa20_done(&st);
    return XSALSA_OK;
 }
-
-#endif /* IMPL_SCALAR */
