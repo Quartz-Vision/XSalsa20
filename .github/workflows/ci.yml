@@ -9,50 +9,36 @@ on:
     types: [ published ]
 
 jobs:
-  # Full build - runs on all platforms
+  # Main build - for everything
   build-full:
     runs-on: ${{ matrix.os }}
-    if: ${{ contains(github.event.head_commit.message, '[full-build]') || contains(github.ref, 'full-build') || github.event_name == 'release' }}
+    if: github.event_name != 'release' || contains(github.event.head_commit.message, '[full-build]') || contains(github.ref, 'full-build')
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-20.04, macos-latest, windows-latest]
-        compiler: [gcc, clang]
-        build_type: [Debug, Release]
-        exclude:
-          - os: windows-latest
-            compiler: clang
-          - os: macos-latest
-            compiler: gcc
+        build_type: [Release]
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install dependencies (Ubuntu)
-      if: runner.os == 'Linux'
+    - name: Install dependencies
       run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential cmake
+        if [ "$RUNNER_OS" = "Linux" ]; then
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
+        elif [ "$RUNNER_OS" = "macOS" ]; then
+          brew install cmake
+        elif [ "$RUNNER_OS" = "Windows" ]; then
+          choco install cmake
+        fi
+      shell: bash
 
-    - name: Install dependencies (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        brew install cmake
-
-    - name: Install dependencies (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        choco install cmake
-
-    - name: Configure with CMake
+    - name: Configure and build
       run: |
         mkdir build
         cd build
         cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
-
-    - name: Build
-      run: |
-        cd build
         cmake --build . --config ${{ matrix.build_type }} --parallel
 
     - name: Run tests
@@ -63,155 +49,52 @@ jobs:
         else
           ctest --output-on-failure
         fi
+      shell: bash
 
     - name: Run benchmarks
       run: |
         cd build
         ./bin/bench_xsalsa
 
-  # Windows-only build
   build-windows:
     runs-on: windows-latest
-    if: ${{ contains(github.event.head_commit.message, '[windows-only]') || contains(github.ref, 'windows-only') }}
-    strategy:
-      matrix:
-        build_type: [Debug, Release]
+    if: contains(github.event.head_commit.message, '[windows-only]') || contains(github.ref, 'windows-only')
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install dependencies (Windows)
-      run: |
-        choco install cmake
+    - name: Install dependencies
+      run: choco install cmake
 
-    - name: Configure with CMake
+    - name: Configure and build
       run: |
         mkdir build
         cd build
-        cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
-
-    - name: Build
-      run: |
-        cd build
-        cmake --build . --config ${{ matrix.build_type }} --parallel
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
+        cmake --build . --config Release --parallel
 
     - name: Run tests
       run: |
         cd build
-        if [ "$RUNNER_OS" = "Windows" ]; then
-          ctest -C ${{ matrix.build_type }} --output-on-failure
-        else
-          ctest --output-on-failure
-        fi
+        ctest -C Release --output-on-failure
+      shell: bash
 
     - name: Run benchmarks
       run: |
         cd build
         ./bin/bench_xsalsa
+      shell: bash
 
-  # Debug-only build
-  build-debug:
-    runs-on: ${{ matrix.os }}
-    if: ${{ contains(github.event.head_commit.message, '[debug-only]') || contains(github.ref, 'debug-only') }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        build_type: [Debug]
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install dependencies (Ubuntu)
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential cmake
-
-    - name: Install dependencies (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        choco install cmake
-
-    - name: Configure with CMake
-      run: |
-        mkdir build
-        cd build
-        cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
-
-    - name: Build
-      run: |
-        cd build
-        cmake --build . --config ${{ matrix.build_type }} --parallel
-
-    - name: Run tests
-      run: |
-        cd build
-        if [ "$RUNNER_OS" = "Windows" ]; then
-          ctest -C ${{ matrix.build_type }} --output-on-failure
-        else
-          ctest --output-on-failure
-        fi
-
-    - name: Run benchmarks
-      run: |
-        cd build
-        ./bin/bench_xsalsa
-
-  # Default build - runs when no specific flags are set
-  build-default:
-    runs-on: ${{ matrix.os }}
-    if: ${{ !contains(github.event.head_commit.message, '[full-build]') && !contains(github.event.head_commit.message, '[windows-only]') && !contains(github.event.head_commit.message, '[debug-only]') && !contains(github.ref, 'full-build') && !contains(github.ref, 'windows-only') && !contains(github.ref, 'debug-only') && github.event_name != 'release' }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        build_type: [Debug]
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install dependencies (Ubuntu)
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential cmake
-
-    - name: Install dependencies (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        choco install cmake
-
-    - name: Configure with CMake
-      run: |
-        mkdir build
-        cd build
-        cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
-
-    - name: Build
-      run: |
-        cd build
-        cmake --build . --config ${{ matrix.build_type }} --parallel
-
-    - name: Run tests
-      run: |
-        cd build
-        if [ "$RUNNER_OS" = "Windows" ]; then
-          ctest -C ${{ matrix.build_type }} --output-on-failure
-        else
-          ctest --output-on-failure
-        fi
-
-    - name: Run benchmarks
-      run: |
-        cd build
-        ./bin/bench_xsalsa
-
-  build-static-lib:
+  # Build artifacts for release
+  artifacts:
     runs-on: ubuntu-latest
-    needs: [build-full, build-windows, build-debug, build-default]
-    if: always() && (needs.build-full.result == 'success' || needs.build-windows.result == 'success' || needs.build-debug.result == 'success' || needs.build-default.result == 'success')
+    needs: [build-full, build-windows]
+    if: always() && (needs.build-full.result == 'success' || needs.build-windows.result == 'success')
+
+    strategy:
+      matrix:
+        artifact: [static, shared, cross-compile]
 
     steps:
     - name: Checkout code
@@ -220,96 +103,45 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential cmake
+        sudo apt-get install -y build-essential cmake gcc-mingw-w64 g++-mingw-w64
 
-    - name: Build static library
+    - name: Build ${{ matrix.artifact }} library
       run: |
-        mkdir build-static
-        cd build-static
-        cmake .. -DBUILD_STATIC=ON -DBUILD_SHARED=OFF -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF
+        mkdir build-${{ matrix.artifact }}
+        cd build-${{ matrix.artifact }}
+        
+        if [ "${{ matrix.artifact }}" = "static" ]; then
+          cmake .. -DBUILD_STATIC=ON -DBUILD_SHARED=OFF -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF
+        elif [ "${{ matrix.artifact }}" = "shared" ]; then
+          cmake .. -DBUILD_STATIC=OFF -DBUILD_SHARED=ON -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF
+        elif [ "${{ matrix.artifact }}" = "cross-compile" ]; then
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/windows-toolchain.cmake -DBUILD_STATIC=ON -DBUILD_SHARED=OFF -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF
+        fi
+        
         cmake --build . --parallel
 
     - name: Create distribution package
       run: |
-        cd build-static
+        cd build-${{ matrix.artifact }}
         make DESTDIR=./install install
-        tar -czf xsalsa20-static-linux-x86_64.tar.gz -C install .
+        
+        if [ "${{ matrix.artifact }}" = "static" ]; then
+          tar -czf xsalsa20-static-linux-x86_64.tar.gz -C install .
+        elif [ "${{ matrix.artifact }}" = "shared" ]; then
+          tar -czf xsalsa20-shared-linux-x86_64.tar.gz -C install .
+        elif [ "${{ matrix.artifact }}" = "cross-compile" ]; then
+          tar -czf xsalsa20-static-windows-x86_64.tar.gz -C install .
+        fi
 
-    - name: Upload static library artifact
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: xsalsa20-static-linux-x86_64
-        path: build-static/xsalsa20-static-linux-x86_64.tar.gz
-
-  build-shared-lib:
-    runs-on: ubuntu-latest
-    needs: [build-full, build-windows, build-debug, build-default]
-    if: always() && (needs.build-full.result == 'success' || needs.build-windows.result == 'success' || needs.build-debug.result == 'success' || needs.build-default.result == 'success')
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential cmake
-
-    - name: Build shared library
-      run: |
-        mkdir build-shared
-        cd build-shared
-        cmake .. -DBUILD_STATIC=OFF -DBUILD_SHARED=ON -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF
-        cmake --build . --parallel
-
-    - name: Create distribution package
-      run: |
-        cd build-shared
-        make DESTDIR=./install install
-        tar -czf xsalsa20-shared-linux-x86_64.tar.gz -C install .
-
-    - name: Upload shared library artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: xsalsa20-shared-linux-x86_64
-        path: build-shared/xsalsa20-shared-linux-x86_64.tar.gz
-
-  cross-compile:
-    runs-on: ubuntu-latest
-    needs: [build-full, build-windows, build-debug, build-default]
-    if: always() && (needs.build-full.result == 'success' || needs.build-windows.result == 'success' || needs.build-debug.result == 'success' || needs.build-default.result == 'success')
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install cross-compilation tools
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc-mingw-w64 g++-mingw-w64 cmake
-
-    - name: Cross-compile for Windows
-      run: |
-        mkdir build-windows
-        cd build-windows
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/windows-toolchain.cmake -DBUILD_STATIC=ON -DBUILD_SHARED=OFF -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF
-        cmake --build . --parallel
-
-    - name: Create Windows distribution package
-      run: |
-        cd build-windows
-        make DESTDIR=./install install
-        tar -czf xsalsa20-static-windows-x86_64.tar.gz -C install .
-
-    - name: Upload Windows artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: xsalsa20-static-windows-x86_64
-        path: build-windows/xsalsa20-static-windows-x86_64.tar.gz
+        name: xsalsa20-${{ matrix.artifact }}-${{ matrix.artifact == 'cross-compile' && 'windows-x86_64' || 'linux-x86_64' }}
+        path: build-${{ matrix.artifact }}/xsalsa20-${{ matrix.artifact }}-${{ matrix.artifact == 'cross-compile' && 'windows-x86_64' || 'linux-x86_64' }}.tar.gz
 
   release:
     runs-on: ubuntu-latest
-    needs: [build-static-lib, build-shared-lib, cross-compile]
+    needs: artifacts
     if: github.event_name == 'release'
 
     steps:
@@ -321,34 +153,10 @@ jobs:
         mkdir release-assets
         cp xsalsa20-static-linux-x86_64/xsalsa20-static-linux-x86_64.tar.gz release-assets/
         cp xsalsa20-shared-linux-x86_64/xsalsa20-shared-linux-x86_64.tar.gz release-assets/
-        cp xsalsa20-static-windows-x86_64/xsalsa20-static-windows-x86_64.tar.gz release-assets/
+        cp xsalsa20-cross-compile-windows-x86_64/xsalsa20-static-windows-x86_64.tar.gz release-assets/
 
     - name: Upload release assets
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: ncipollo/release-action@v1
       with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./release-assets/xsalsa20-static-linux-x86_64.tar.gz
-        asset_name: xsalsa20-static-linux-x86_64.tar.gz
-        asset_content_type: application/gzip
-
-    - name: Upload shared library asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./release-assets/xsalsa20-shared-linux-x86_64.tar.gz
-        asset_name: xsalsa20-shared-linux-x86_64.tar.gz
-        asset_content_type: application/gzip
-
-    - name: Upload Windows asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./release-assets/xsalsa20-static-windows-x86_64.tar.gz
-        asset_name: xsalsa20-static-windows-x86_64.tar.gz
-        asset_content_type: application/gzip 
+        artifacts: "release-assets/*.tar.gz"
+        token: ${{ secrets.GITHUB_TOKEN }} 
