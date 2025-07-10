@@ -8,6 +8,8 @@ option(BUILD_TESTS "Build test executables" ON)
 option(BUILD_BENCHMARKS "Build benchmark executables" ON)
 option(BUILD_SHARED "Build shared library" OFF)
 option(BUILD_STATIC "Build static library" ON)
+option(IMPL_SCALAR "Build scalar implementation" ON)
+option(IMPL_AVX "Build AVX implementation" ON)
 
 # Optimization levels
 if(NOT CMAKE_BUILD_TYPE)
@@ -41,17 +43,42 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
     endif()
 endif()
 
-# Add AVX support
-if(NOT MSVC)
+# Add AVX support only if AVX implementation is enabled
+if(IMPL_AVX AND NOT MSVC)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx")
+endif()
+
+# Add preprocessor definitions for implementation selection
+if(IMPL_SCALAR)
+    add_definitions(-DXSALSA_USE_IMPL_SCALAR)
+endif()
+
+if(IMPL_AVX)
+    add_definitions(-DXSALSA_USE_IMPL_AVX)
 endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-set(XSALSA20_SOURCES xsalsa_scalar.c xsalsa_avx.c xsalsa_cpu.c xsalsa_runtime.c)
-set(XSALSA20_HEADERS xsalsa.h xsalsa_scalar.h xsalsa_avx.h)
+# Build source list based on enabled implementations
+set(XSALSA20_SOURCES xsalsa_cpu.c xsalsa_runtime.c)
+set(XSALSA20_HEADERS xsalsa.h)
+
+if(IMPL_SCALAR)
+    list(APPEND XSALSA20_SOURCES xsalsa_scalar.c)
+    list(APPEND XSALSA20_HEADERS xsalsa_scalar.h)
+endif()
+
+if(IMPL_AVX)
+    list(APPEND XSALSA20_SOURCES xsalsa_avx.c)
+    list(APPEND XSALSA20_HEADERS xsalsa_avx.h)
+endif()
+
+# Ensure at least one implementation is enabled
+if(NOT IMPL_SCALAR AND NOT IMPL_AVX)
+    message(FATAL_ERROR "At least one implementation (IMPL_SCALAR or IMPL_AVX) must be enabled")
+endif()
 
 if(BUILD_STATIC)
     add_library(xsalsa20_static STATIC ${XSALSA20_SOURCES})
@@ -175,4 +202,15 @@ install(FILES
 enable_testing()
 if(BUILD_TESTS)
     add_test(NAME XSalsa20Test COMMAND test_xsalsa)
+    
+    # Set test properties to handle single implementation
+    if(IMPL_SCALAR)
+        set_tests_properties(XSalsa20Test PROPERTIES
+            ENVIRONMENT "XSALSA20_TEST_SCALAR_ONLY=1"
+        ) 
+    elseif(IMPL_AVX)
+        set_tests_properties(XSalsa20Test PROPERTIES
+            ENVIRONMENT "XSALSA20_TEST_AVX_ONLY=1"
+        )
+    endif()
 endif() 

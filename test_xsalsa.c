@@ -17,6 +17,25 @@ static unsigned char nonce[24] = {
 
 static const char *plaintext = "Hello, XSalsa20! This is a test message.";
 
+typedef struct {
+    const char *name;
+    int impl;
+} impl_test_t;
+
+static const impl_test_t impls[] = {
+    #ifdef XSALSA_USE_IMPL_SCALAR
+    { "Scalar", XSALSA_IMPL_SCALAR },
+    #else
+    { "Scalar", -1 },
+    #endif
+
+    #ifdef XSALSA_USE_IMPL_AVX
+    { "AVX", XSALSA_IMPL_AVX },
+    #else
+    { "AVX", -1 },
+    #endif
+};
+
 
 int run_impl_tests(int impl)
 {
@@ -95,30 +114,36 @@ int run_impl_tests(int impl)
 int run_impl_comparison_tests(void)
 {
     unsigned long plaintext_len = strlen(plaintext);
-    unsigned char encrypted_scalar[256];
-    unsigned char encrypted_avx[256];
+    unsigned char encrypted_prev[256];
+    unsigned char encrypted_curr[256];
+    int ret = 0;
 
-    xsalsa20_force_impl(0);
-    if (xsalsa20_memory(key, 32, nonce, 24, 20, 
-                        (const unsigned char*)plaintext, plaintext_len, encrypted_scalar) != XSALSA_OK) {
-        printf("✗ One-shot encryption failed (scalar)\n");
-        return 1;
+    for (int i = 0; i < sizeof(impls) / sizeof(impls[0]); i++) {
+        if (impls[i].impl == -1) {
+            printf("Skipping XSalsa20 %s implementation (not available)\n", impls[i].name);
+            continue;
+        }
+
+        xsalsa20_force_impl(impls[i].impl);
+
+        if (xsalsa20_memory(key, 32, nonce, 24, 20, 
+                            (const unsigned char*)plaintext, plaintext_len, encrypted_curr) != XSALSA_OK) {
+            printf("✗ One-shot encryption failed for %s\n", impls[i].name);
+            ret = 1;
+        }
+
+        if (i > 0 && memcmp(encrypted_prev, encrypted_curr, plaintext_len) != 0) {
+            printf("✗ Not matching encrypted data, %s != %s\n", impls[i-1].name, impls[i].name);
+            ret = 1;
+        }
+        memcpy(encrypted_prev, encrypted_curr, plaintext_len);
     }
 
-    xsalsa20_force_impl(1);
-    if (xsalsa20_memory(key, 32, nonce, 24, 20, 
-                        (const unsigned char*)plaintext, plaintext_len, encrypted_avx) != XSALSA_OK) {
-        printf("✗ One-shot encryption failed (avx)\n");
-        return 1;
+    if (ret == 0) {
+        printf("✓ All implementations match\n");
     }
 
-    if (memcmp(encrypted_scalar, encrypted_avx, plaintext_len) == 0) {
-        printf("✓ One-shot encryption matches\n");
-    } else {
-        printf("✗ One-shot encryption does not match\n");
-        return 1;
-    }
-    return 0;
+    return ret;
 }
 
 
@@ -126,21 +151,22 @@ int main(void)
 {
     int ret = 0;
 
-    printf("Testing XSalsa20 SCALAR implementation...\n");
-    if (run_impl_tests(0) != 0) {
-        printf("✗ XSalsa20 SCALAR implementation failed\n");
-        ret = 1;
+    for (int i = 0; i < sizeof(impls) / sizeof(impls[0]); i++) {
+        if (impls[i].impl == -1) {
+            printf("Skipping XSalsa20 %s implementation (not available)\n", impls[i].name);
+            continue;
+        }
+
+        printf("\nTesting XSalsa20 %s implementation...\n", impls[i].name);
+        if (run_impl_tests(impls[i].impl) != 0) {
+            printf("✗ XSalsa20 %s implementation failed\n", impls[i].name);
+            ret = 1;
+        }
     }
 
-    printf("\nTesting XSalsa20 AVX implementation...\n");
-    if (run_impl_tests(1) != 0) {
-        printf("✗ XSalsa20 AVX implementation failed\n");
-        ret = 1;
-    }
-
-    printf("\nTesting XSalsa20 implementation comparison...\n");
+    printf("\nTesting XSalsa20 implementations comparison...\n");
     if (run_impl_comparison_tests() != 0) {
-        printf("✗ XSalsa20 implementation comparison failed\n");
+        printf("✗ XSalsa20 implementations comparison failed\n");
         ret = 1;
     }
 

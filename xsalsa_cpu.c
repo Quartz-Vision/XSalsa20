@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 /* CPU feature detection */
-static int cpu_has_avx = -1;  /* -1 = not checked, 0 = no, 1 = yes */
+static int impl_selected = -1;  /* -1 = not checked */
 
 /**
  * Check if CPU supports AVX
@@ -11,10 +11,7 @@ static int cpu_has_avx = -1;  /* -1 = not checked, 0 = no, 1 = yes */
  */
 static int check_avx_support(void)
 {
-    if (cpu_has_avx != -1) {
-        return cpu_has_avx;
-    }
-    
+    int cpu_has_avx = -1;
     unsigned int eax, ebx, ecx, edx;
     
     /* Check if CPUID supports leaf 1 */
@@ -39,7 +36,16 @@ static int check_avx_support(void)
  */
 int xsalsa20_get_best_impl(void)
 {
-    return check_avx_support();
+    #ifdef XSALSA_USE_IMPL_AVX
+    if (impl_selected != -1) {
+        return impl_selected;
+    }
+
+    impl_selected = check_avx_support();
+    return impl_selected;
+    #else
+    return XSALSA_IMPL_SCALAR;
+    #endif
 }
 
 /**
@@ -48,9 +54,5 @@ int xsalsa20_get_best_impl(void)
  */
 void xsalsa20_force_impl(int impl)
 {
-    if (impl == 0) {
-        cpu_has_avx = 0;
-    } else if (impl == 1) {
-        cpu_has_avx = 1;
-    }
+    impl_selected = impl;
 } 

@@ -40,18 +40,22 @@ static void init_impl(void)
         return; /* Already initialized */
     }
     
-    if (xsalsa20_get_best_impl()) {
+    if (xsalsa20_get_best_impl() == XSALSA_IMPL_AVX) {
         /* Use AVX implementation */
+        #ifdef XSALSA_USE_IMPL_AVX
         xsalsa20_setup_impl = xsalsa20_setup_avx;
         xsalsa20_crypt_impl = xsalsa20_crypt_avx;
         xsalsa20_keystream_impl = xsalsa20_keystream_avx;
         xsalsa20_memory_impl = xsalsa20_memory_avx;
+        #endif
     } else {
         /* Use scalar implementation */
+        #ifdef XSALSA_USE_IMPL_SCALAR
         xsalsa20_setup_impl = xsalsa20_setup_scalar;
         xsalsa20_crypt_impl = xsalsa20_crypt_scalar;
         xsalsa20_keystream_impl = xsalsa20_keystream_scalar;
         xsalsa20_memory_impl = xsalsa20_memory_scalar;
+        #endif
     }
 }
 

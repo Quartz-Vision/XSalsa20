@@ -1,7 +1,10 @@
+#ifdef XSALSA_USE_IMPL_AVX
+
 #include "xsalsa.h"
 #include <immintrin.h>
 #include <string.h>
 #include <stdio.h>
+
 
 /* Internal macros and definitions */
 #define XSALSA_ARGCHK(x) do { if (!(x)) return XSALSA_INVALID_ARG; } while(0)
@@ -537,3 +540,5 @@ int xsalsa20_memory_avx(const unsigned char *key, unsigned long keylen,
    xsalsa20_done(&st);
    return XSALSA_OK;
 } 
+
+#endif /* IMPL_AVX */

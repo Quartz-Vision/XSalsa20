@@ -17,6 +17,10 @@ extern "C" {
 #define XSALSA_INVALID_ROUNDS -5
 #define XSALSA_OVERFLOW -6
 
+#define XSALSA_IMPL_SCALAR 0
+#define XSALSA_IMPL_AVX 1
+
+
 /* Data types */
 typedef uint32_t ulong32;
 typedef uint64_t ulong64;
