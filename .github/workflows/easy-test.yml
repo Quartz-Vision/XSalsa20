@@ -1,0 +1,41 @@
+name: Easy Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      windows:
+        description: 'Run Windows-only build'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  test-windows:
+    runs-on: windows-latest
+    if: github.event.inputs.windows == 'true'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: choco install cmake
+
+    - name: Configure and build
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
+        cmake --build . --config Release --parallel
+
+    - name: Run tests
+      run: |
+        cd build
+        ctest -C Release --output-on-failure
+      shell: bash
+
+    - name: Run benchmarks
+      run: |
+        cd build
+        ./bin/bench_xsalsa
+      shell: bash 

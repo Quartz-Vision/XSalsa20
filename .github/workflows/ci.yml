@@ -1,10 +1,6 @@
 name: CI/CD
 
 on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
   release:
     types: [ published ]
 
@@ -12,7 +8,6 @@ jobs:
   # Main build - for everything
   build-full:
     runs-on: ${{ matrix.os }}
-    if: github.event_name != 'release' || contains(github.event.head_commit.message, '[full-build]') || contains(github.ref, 'full-build')
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-20.04, macos-latest, windows-latest]
@@ -56,41 +51,11 @@ jobs:
         cd build
         ./bin/bench_xsalsa
 
-  build-windows:
-    runs-on: windows-latest
-    if: contains(github.event.head_commit.message, '[windows-only]') || contains(github.ref, 'windows-only')
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install dependencies
-      run: choco install cmake
-
-    - name: Configure and build
-      run: |
-        mkdir build
-        cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
-        cmake --build . --config Release --parallel
-
-    - name: Run tests
-      run: |
-        cd build
-        ctest -C Release --output-on-failure
-      shell: bash
-
-    - name: Run benchmarks
-      run: |
-        cd build
-        ./bin/bench_xsalsa
-      shell: bash
-
   # Build artifacts for release
   artifacts:
     runs-on: ubuntu-latest
-    needs: [build-full, build-windows]
-    if: always() && (needs.build-full.result == 'success' || needs.build-windows.result == 'success')
+    needs: build-full
+    if: always() && needs.build-full.result == 'success'
 
     strategy:
       matrix:
