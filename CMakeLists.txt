@@ -41,12 +41,17 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
     endif()
 endif()
 
+# Add AVX support
+if(NOT MSVC)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx")
+endif()
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-set(XSALSA20_SOURCES xsalsa.c)
-set(XSALSA20_HEADERS xsalsa.h)
+set(XSALSA20_SOURCES xsalsa_scalar.c xsalsa_avx.c xsalsa_cpu.c xsalsa_runtime.c)
+set(XSALSA20_HEADERS xsalsa.h xsalsa_scalar.h xsalsa_avx.h)
 
 if(BUILD_STATIC)
     add_library(xsalsa20_static STATIC ${XSALSA20_SOURCES})

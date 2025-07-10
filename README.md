@@ -1,6 +1,11 @@
 # XSalsa20 Library
 
-A C implementation of the XSalsa20 cipher.
+A C implementation of the XSalsa20 cipher with AVX acceleration.
+
+## Features
+
+- **AVX Acceleration**: Automatic CPU detection and runtime dispatch to AVX-optimized implementation
+- **Portable**: Fallback to scalar implementation on non-AVX systems
 
 ## Building
 
@@ -40,6 +45,19 @@ Example:
 
 ```bash
 cmake -DBUILD_SHARED=ON -DBUILD_STATIC=OFF ..
+```
+
+### AVX Support
+
+The library automatically detects AVX support at runtime and uses the optimal implementation.
+You can check which implementation is being used:
+
+```c
+if (xsalsa20_get_best_impl()) {
+    printf("Using AVX implementation\n");
+} else {
+    printf("Using scalar implementation\n");
+}
 ```
 
 ## Usage
@@ -165,6 +183,20 @@ make test
 ```bash
 cd build
 ./bin/bench_xsalsa
+```
+
+### Implementation Comparison
+
+You can compare implementations in your own code:
+
+```c
+// Force scalar implementation
+xsalsa20_force_impl(0);
+xsalsa20_memory(key, 32, nonce, 24, 20, data, len, output);
+
+// Force AVX implementation (if available)
+xsalsa20_force_impl(1);
+xsalsa20_memory(key, 32, nonce, 24, 20, data, len, output);
 ```
 
 ## Installation

@@ -92,6 +92,18 @@ int xsalsa20_memory(const unsigned char *key, unsigned long keylen,
                     unsigned char *dataout);
 
 /**
+ * Get the best available implementation
+ * @return 1 for AVX, 0 for scalar
+ */
+int xsalsa20_get_best_impl(void);
+
+/**
+ * Force a specific implementation (for testing)
+ * @param impl 0 for scalar, 1 for AVX
+ */
+void xsalsa20_force_impl(int impl);
+
+/**
  * Run self-test
  * @return XSALSA_OK if successful
  */
