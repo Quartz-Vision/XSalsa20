@@ -56,6 +56,7 @@ jobs:
 
     - name: Build and pack static library
       run: |
+        mkdir build-static
         cd build-static
         cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF -DBUILD_STATIC=ON -DBUILD_SHARED=OFF
         cmake --build . --config ${{ matrix.build_type }} --parallel
@@ -64,6 +65,7 @@ jobs:
 
     - name: Build and pack shared library
       run: |
+        mkdir build-shared
         cd build-shared
         cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF -DBUILD_STATIC=OFF -DBUILD_SHARED=ON
         cmake --build . --config ${{ matrix.build_type }} --parallel
