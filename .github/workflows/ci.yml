@@ -1,0 +1,206 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-20.04, macos-latest, windows-latest]
+        compiler: [gcc, clang]
+        build_type: [Debug, Release]
+        exclude:
+          - os: windows-latest
+            compiler: clang
+          - os: macos-latest
+            compiler: gcc
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
+
+    - name: Install dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install cmake
+
+    - name: Install dependencies (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        choco install cmake
+
+    - name: Configure with CMake
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
+
+    - name: Build
+      run: |
+        cd build
+        cmake --build . --config ${{ matrix.build_type }} --parallel
+
+    - name: Run tests
+      run: |
+        cd build
+        ctest --output-on-failure
+
+    - name: Run benchmarks
+      run: |
+        cd build
+        ./bin/bench_xsalsa
+
+  build-static-lib:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
+
+    - name: Build static library
+      run: |
+        mkdir build-static
+        cd build-static
+        cmake .. -DBUILD_STATIC=ON -DBUILD_SHARED=OFF -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF
+        cmake --build . --parallel
+
+    - name: Create distribution package
+      run: |
+        cd build-static
+        make DESTDIR=./install install
+        tar -czf xsalsa20-static-linux-x86_64.tar.gz -C install .
+
+    - name: Upload static library artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: xsalsa20-static-linux-x86_64
+        path: build-static/xsalsa20-static-linux-x86_64.tar.gz
+
+  build-shared-lib:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
+
+    - name: Build shared library
+      run: |
+        mkdir build-shared
+        cd build-shared
+        cmake .. -DBUILD_STATIC=OFF -DBUILD_SHARED=ON -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF
+        cmake --build . --parallel
+
+    - name: Create distribution package
+      run: |
+        cd build-shared
+        make DESTDIR=./install install
+        tar -czf xsalsa20-shared-linux-x86_64.tar.gz -C install .
+
+    - name: Upload shared library artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: xsalsa20-shared-linux-x86_64
+        path: build-shared/xsalsa20-shared-linux-x86_64.tar.gz
+
+  cross-compile:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install cross-compilation tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-mingw-w64 g++-mingw-w64 cmake
+
+    - name: Cross-compile for Windows
+      run: |
+        mkdir build-windows
+        cd build-windows
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/windows-toolchain.cmake -DBUILD_STATIC=ON -DBUILD_SHARED=OFF -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF
+        cmake --build . --parallel
+
+    - name: Create Windows distribution package
+      run: |
+        cd build-windows
+        make DESTDIR=./install install
+        tar -czf xsalsa20-static-windows-x86_64.tar.gz -C install .
+
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: xsalsa20-static-windows-x86_64
+        path: build-windows/xsalsa20-static-windows-x86_64.tar.gz
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-static-lib, build-shared-lib, cross-compile]
+    if: github.event_name == 'release'
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Create release assets
+      run: |
+        mkdir release-assets
+        cp xsalsa20-static-linux-x86_64/xsalsa20-static-linux-x86_64.tar.gz release-assets/
+        cp xsalsa20-shared-linux-x86_64/xsalsa20-shared-linux-x86_64.tar.gz release-assets/
+        cp xsalsa20-static-windows-x86_64/xsalsa20-static-windows-x86_64.tar.gz release-assets/
+
+    - name: Upload release assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./release-assets/xsalsa20-static-linux-x86_64.tar.gz
+        asset_name: xsalsa20-static-linux-x86_64.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload shared library asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./release-assets/xsalsa20-shared-linux-x86_64.tar.gz
+        asset_name: xsalsa20-shared-linux-x86_64.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload Windows asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./release-assets/xsalsa20-static-windows-x86_64.tar.gz
+        asset_name: xsalsa20-static-windows-x86_64.tar.gz
+        asset_content_type: application/gzip 

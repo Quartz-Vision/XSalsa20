@@ -1,0 +1,10 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+includedir=${prefix}/include
+libdir=${exec_prefix}/lib
+
+Name: XSalsa20
+Description: XSalsa20 stream cipher library
+Version: @PROJECT_VERSION@
+Cflags: -I${includedir}/xsalsa20
+Libs: -L${libdir} -lxsalsa20 
