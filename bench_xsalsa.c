@@ -5,6 +5,12 @@
 #include <string.h>
 #include <time.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <time.h>
+#endif
+
 #define BENCH_SIZE_MB 100
 #define BENCH_SECONDS 3
 
@@ -13,9 +19,26 @@ static void fill_random(unsigned char *buf, size_t len) {
         buf[i] = (unsigned char)(rand() & 0xFF);
 }
 
+#ifdef _WIN32
+static double get_time_sec(void) {
+    static LARGE_INTEGER freq = {0};
+    static LARGE_INTEGER start = {0};
+    LARGE_INTEGER now;
+    
+    if (freq.QuadPart == 0) {
+        QueryPerformanceFrequency(&freq);
+        QueryPerformanceCounter(&start);
+        return 0.0;
+    }
+    
+    QueryPerformanceCounter(&now);
+    return (double)(now.QuadPart - start.QuadPart) / (double)freq.QuadPart;
+}
+#else
 static double timespec_to_sec(const struct timespec *start, const struct timespec *end) {
     return (end->tv_sec - start->tv_sec) + (end->tv_nsec - start->tv_nsec) / 1e9;
 }
+#endif
 
 int main(void) {
     const size_t bufsize = BENCH_SIZE_MB * 1024 * 1024;
@@ -32,7 +55,11 @@ int main(void) {
     fill_random(inbuf, bufsize);
 
     xsalsa20_state st;
+#ifdef _WIN32
+    double t0, t1;
+#else
     struct timespec t0, t1;
+#endif
     size_t total_bytes = 0;
     double elapsed = 0.0;
 
@@ -44,6 +71,18 @@ int main(void) {
         return 1;
     }
 
+#ifdef _WIN32
+    t0 = get_time_sec();
+    do {
+        if (xsalsa20_crypt(&st, inbuf, bufsize, outbuf) != XSALSA_OK) {
+            printf("XSalsa20 encrypt failed\n");
+            return 1;
+        }
+        total_bytes += bufsize;
+        t1 = get_time_sec();
+        elapsed = t1 - t0;
+    } while (elapsed < BENCH_SECONDS);
+#else
     clock_gettime(CLOCK_MONOTONIC, &t0);
     do {
         if (xsalsa20_crypt(&st, inbuf, bufsize, outbuf) != XSALSA_OK) {
@@ -54,6 +93,7 @@ int main(void) {
         clock_gettime(CLOCK_MONOTONIC, &t1);
         elapsed = timespec_to_sec(&t0, &t1);
     } while (elapsed < BENCH_SECONDS);
+#endif
     xsalsa20_done(&st);
 
     double mb = total_bytes / (1024.0 * 1024.0);
