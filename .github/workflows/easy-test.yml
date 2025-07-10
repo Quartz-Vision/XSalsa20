@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       windows:
-        description: 'Run Windows-only build'
+        description: 'Run tests on Windows'
         required: false
         default: true
         type: boolean
@@ -41,9 +41,3 @@ jobs:
         cd build
         ctest -C Release --output-on-failure
       shell: bash
-
-    - name: Run benchmarks
-      run: |
-        cd build
-        ./bin/bench_xsalsa.exe
-      shell: bash 

@@ -46,11 +46,6 @@ jobs:
         fi
       shell: bash
 
-    - name: Run benchmarks
-      run: |
-        cd build
-        ./bin/bench_xsalsa
-
   # Build artifacts for release
   artifacts:
     runs-on: ubuntu-latest
