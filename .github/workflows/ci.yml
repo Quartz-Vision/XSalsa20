@@ -16,6 +16,15 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+    
+    - name: Cache chocolatey packages
+      uses: actions/cache@v4
+      if: ${{ matrix.os == 'windows-latest' }}
+      with:
+        path: C:\ProgramData\chocolatey\lib
+        key: ${{ matrix.os }}-choco-${{ hashFiles('**/CMakeLists.txt') }}
+        restore-keys: |
+          ${{ matrix.os }}-choco-
 
     - name: Install dependencies
       run: |
