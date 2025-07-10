@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 /* CPU feature detection */
-static int impl_selected = -1;  /* -1 = not checked */
+static volatile int impl_selected = -1;  /* -1 = not checked */
 
 #ifdef XSALSA_ARCH_X86
 
@@ -59,7 +59,7 @@ static int check_avx_support(void)
 }
 #endif /* _WIN32 */
 
-#else
+#else /* XSALSA_ARCH_X86 */
 static int check_avx_support(void)
 {
     return 0;

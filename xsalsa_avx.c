@@ -83,7 +83,7 @@
 static const char * const constants = "expand 32-byte k";
 
 /* Internal function: XSalsa20 doubleround with AVX (no final addition as in Salsa20) */
-inline void s_xsalsa20_doubleround_avx(ulong32 *x, int rounds)
+static inline void s_xsalsa20_doubleround_avx(ulong32 *x, int rounds)
 {
    int i;
 
@@ -129,7 +129,7 @@ static void s_salsa20_block_avx(unsigned char *output, const ulong32 *input, int
 }
 
 /* Internal function: Zero memory */
-inline void zeromem(volatile void *out, size_t outlen)
+static inline void zeromem(volatile void *out, size_t outlen)
 {
    volatile unsigned char *x = (volatile unsigned char *)out;
    while (outlen--) *x++ = 0;

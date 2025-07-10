@@ -21,6 +21,8 @@ extern "C" {
 #define XSALSA_IMPL_AVX 1
 
 
+
+
 /* Data types */
 typedef uint32_t ulong32;
 typedef uint64_t ulong64;
@@ -33,6 +35,26 @@ typedef struct {
     unsigned long ivlen;       /* Length of IV/nonce */
     int rounds;               /* Number of rounds */
 } xsalsa20_state;
+
+
+typedef int (*xsalsa20_setup_fn)(xsalsa20_state *st, 
+                                 const unsigned char *key, unsigned long keylen,
+                                 const unsigned char *nonce, unsigned long noncelen,
+                                 int rounds);
+
+typedef int (*xsalsa20_crypt_fn)(xsalsa20_state *st, 
+                                 const unsigned char *in, unsigned long inlen, 
+                                 unsigned char *out);
+
+typedef int (*xsalsa20_keystream_fn)(xsalsa20_state *st, 
+                                     unsigned char *out, unsigned long outlen);
+
+typedef int (*xsalsa20_memory_fn)(const unsigned char *key, unsigned long keylen,
+                                  const unsigned char *nonce, unsigned long noncelen,
+                                  unsigned long rounds,
+                                  const unsigned char *datain, unsigned long datalen,
+                                  unsigned char *dataout);
+
 
 /**
  * Initialize an XSalsa20 context

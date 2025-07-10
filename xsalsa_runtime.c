@@ -4,24 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
-/* Function pointer types */
-typedef int (*xsalsa20_setup_fn)(xsalsa20_state *st, 
-                                 const unsigned char *key, unsigned long keylen,
-                                 const unsigned char *nonce, unsigned long noncelen,
-                                 int rounds);
 
-typedef int (*xsalsa20_crypt_fn)(xsalsa20_state *st, 
-                                 const unsigned char *in, unsigned long inlen, 
-                                 unsigned char *out);
-
-typedef int (*xsalsa20_keystream_fn)(xsalsa20_state *st, 
-                                     unsigned char *out, unsigned long outlen);
-
-typedef int (*xsalsa20_memory_fn)(const unsigned char *key, unsigned long keylen,
-                                  const unsigned char *nonce, unsigned long noncelen,
-                                  unsigned long rounds,
-                                  const unsigned char *datain, unsigned long datalen,
-                                  unsigned char *dataout);
 
 /* Function pointers for runtime dispatch */
 static xsalsa20_setup_fn xsalsa20_setup_impl = NULL;
@@ -30,38 +13,21 @@ static xsalsa20_keystream_fn xsalsa20_keystream_impl = NULL;
 static xsalsa20_memory_fn xsalsa20_memory_impl = NULL;
 
 
-
-
-
 /* Initialize function pointers based on CPU capabilities */
-static void init_impl(void)
+static inline void init_impl(void)
 {
     if (xsalsa20_setup_impl != NULL) {
         return; /* Already initialized */
     }
     
     if (xsalsa20_get_best_impl() == XSALSA_IMPL_AVX) {
-        /* Use AVX implementation */
-        #ifdef XSALSA_USE_IMPL_AVX
-        xsalsa20_setup_impl = xsalsa20_setup_avx;
-        xsalsa20_crypt_impl = xsalsa20_crypt_avx;
-        xsalsa20_keystream_impl = xsalsa20_keystream_avx;
-        xsalsa20_memory_impl = xsalsa20_memory_avx;
-        #endif
+        xsalsa20_avx_init(&xsalsa20_setup_impl, &xsalsa20_crypt_impl, &xsalsa20_keystream_impl, &xsalsa20_memory_impl);
     } else {
-        /* Use scalar implementation */
-        #ifdef XSALSA_USE_IMPL_SCALAR
-        xsalsa20_setup_impl = xsalsa20_setup_scalar;
-        xsalsa20_crypt_impl = xsalsa20_crypt_scalar;
-        xsalsa20_keystream_impl = xsalsa20_keystream_scalar;
-        xsalsa20_memory_impl = xsalsa20_memory_scalar;
-        #endif
+        xsalsa20_scalar_init(&xsalsa20_setup_impl, &xsalsa20_crypt_impl, &xsalsa20_keystream_impl, &xsalsa20_memory_impl);
     }
 }
 
-/**
- * Initialize an XSalsa20 context (runtime dispatch)
- */
+
 int xsalsa20_setup(xsalsa20_state *st, 
                    const unsigned char *key, unsigned long keylen,
                    const unsigned char *nonce, unsigned long noncelen,
@@ -71,9 +37,7 @@ int xsalsa20_setup(xsalsa20_state *st,
     return xsalsa20_setup_impl(st, key, keylen, nonce, noncelen, rounds);
 }
 
-/**
- * Encrypt or decrypt data with XSalsa20 (runtime dispatch)
- */
+
 int xsalsa20_crypt(xsalsa20_state *st, 
                    const unsigned char *in, unsigned long inlen, 
                    unsigned char *out)
@@ -82,9 +46,7 @@ int xsalsa20_crypt(xsalsa20_state *st,
     return xsalsa20_crypt_impl(st, in, inlen, out);
 }
 
-/**
- * Generate keystream bytes (runtime dispatch)
- */
+
 int xsalsa20_keystream(xsalsa20_state *st, 
                        unsigned char *out, unsigned long outlen)
 {
@@ -92,9 +54,7 @@ int xsalsa20_keystream(xsalsa20_state *st,
     return xsalsa20_keystream_impl(st, out, outlen);
 }
 
-/**
- * One-shot encryption/decryption function (runtime dispatch)
- */
+
 int xsalsa20_memory(const unsigned char *key, unsigned long keylen,
                     const unsigned char *nonce, unsigned long noncelen,
                     unsigned long rounds,
@@ -106,9 +66,7 @@ int xsalsa20_memory(const unsigned char *key, unsigned long keylen,
                                 datain, datalen, dataout);
 }
 
-/**
- * Clean up XSalsa20 state (same for all implementations)
- */
+
 void xsalsa20_done(xsalsa20_state *st)
 {
     if (st != NULL) {
