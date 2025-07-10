@@ -10,8 +10,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        build_type: [Release]
+        include:
+          - os: ubuntu-latest
+            arch: linux-x86_64
+            build_type: Release
+          - os: macos-latest
+            arch: macos-arm64
+            build_type: Release
+          - os: windows-latest
+            arch: windows-x86_64
+            build_type: Release
 
     steps:
     - name: Checkout code
@@ -33,7 +41,7 @@ jobs:
       run: |
         mkdir build
         cd build
-        cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
+        cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=OFF -DBUILD_STATIC=ON -DBUILD_SHARED=ON
         cmake --build . --config ${{ matrix.build_type }} --parallel
 
     - name: Run tests
@@ -46,62 +54,33 @@ jobs:
         fi
       shell: bash
 
-  # Build artifacts for release
-  artifacts:
-    runs-on: ubuntu-latest
-    needs: build-full
-    if: always() && needs.build-full.result == 'success'
-
-    strategy:
-      matrix:
-        artifact: [static, shared, cross-compile]
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Install dependencies
+    - name: Package static library
       run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential cmake gcc-mingw-w64 g++-mingw-w64
-
-    - name: Build ${{ matrix.artifact }} library
-      run: |
-        mkdir build-${{ matrix.artifact }}
-        cd build-${{ matrix.artifact }}
-        
-        if [ "${{ matrix.artifact }}" = "static" ]; then
-          cmake .. -DBUILD_STATIC=ON -DBUILD_SHARED=OFF -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF
-        elif [ "${{ matrix.artifact }}" = "shared" ]; then
-          cmake .. -DBUILD_STATIC=OFF -DBUILD_SHARED=ON -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF
-        elif [ "${{ matrix.artifact }}" = "cross-compile" ]; then
-          cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/windows-toolchain.cmake -DBUILD_STATIC=ON -DBUILD_SHARED=OFF -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF
-        fi
-        
-        cmake --build . --parallel
-
-    - name: Create distribution package
-      run: |
-        cd build-${{ matrix.artifact }}
+        cd build
         make DESTDIR=./install install
-        
-        if [ "${{ matrix.artifact }}" = "static" ]; then
-          tar -czf xsalsa20-static-linux-x86_64.tar.gz -C install .
-        elif [ "${{ matrix.artifact }}" = "shared" ]; then
-          tar -czf xsalsa20-shared-linux-x86_64.tar.gz -C install .
-        elif [ "${{ matrix.artifact }}" = "cross-compile" ]; then
-          tar -czf xsalsa20-static-windows-x86_64.tar.gz -C install .
-        fi
+        tar -czf xsalsa20-static-${{ matrix.arch }}.tar.gz -C install .
 
-    - name: Upload artifact
+    - name: Package shared library
+      run: |
+        cd build
+        make DESTDIR=./install install
+        tar -czf xsalsa20-shared-${{ matrix.arch }}.tar.gz -C install .
+
+    - name: Upload static artifact
       uses: actions/upload-artifact@v4
       with:
-        name: xsalsa20-${{ matrix.artifact }}-${{ matrix.artifact == 'cross-compile' && 'windows-x86_64' || 'linux-x86_64' }}
-        path: build-${{ matrix.artifact }}/xsalsa20-${{ matrix.artifact }}-${{ matrix.artifact == 'cross-compile' && 'windows-x86_64' || 'linux-x86_64' }}.tar.gz
+        name: xsalsa20-static-${{ matrix.arch }}
+        path: build/xsalsa20-static-${{ matrix.arch }}.tar.gz
+
+    - name: Upload shared artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: xsalsa20-shared-${{ matrix.arch }}
+        path: build/xsalsa20-shared-${{ matrix.arch }}.tar.gz
 
   release:
     runs-on: ubuntu-latest
-    needs: artifacts
+    needs: [build-full]
     if: github.event_name == 'release'
 
     steps:
@@ -113,7 +92,10 @@ jobs:
         mkdir release-assets
         cp xsalsa20-static-linux-x86_64/xsalsa20-static-linux-x86_64.tar.gz release-assets/
         cp xsalsa20-shared-linux-x86_64/xsalsa20-shared-linux-x86_64.tar.gz release-assets/
-        cp xsalsa20-cross-compile-windows-x86_64/xsalsa20-static-windows-x86_64.tar.gz release-assets/
+        cp xsalsa20-static-windows-x86_64/xsalsa20-static-windows-x86_64.tar.gz release-assets/
+        cp xsalsa20-shared-windows-x86_64/xsalsa20-shared-windows-x86_64.tar.gz release-assets/
+        cp xsalsa20-static-macos-arm64/xsalsa20-static-macos-arm64.tar.gz release-assets/
+        cp xsalsa20-shared-macos-arm64/xsalsa20-shared-macos-arm64.tar.gz release-assets/
 
     - name: Upload release assets
       uses: ncipollo/release-action@v1
