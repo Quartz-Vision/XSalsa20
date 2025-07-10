@@ -9,8 +9,10 @@ on:
     types: [ published ]
 
 jobs:
-  build-and-test:
+  # Full build - runs on all platforms
+  build-full:
     runs-on: ${{ matrix.os }}
+    if: ${{ contains(github.event.head_commit.message, '[full-build]') || contains(github.ref, 'full-build') || github.event_name == 'release' }}
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-20.04, macos-latest, windows-latest]
@@ -63,9 +65,137 @@ jobs:
         cd build
         ./bin/bench_xsalsa
 
+  # Windows-only build
+  build-windows:
+    runs-on: windows-latest
+    if: ${{ contains(github.event.head_commit.message, '[windows-only]') || contains(github.ref, 'windows-only') }}
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies (Windows)
+      run: |
+        choco install cmake
+
+    - name: Configure with CMake
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
+
+    - name: Build
+      run: |
+        cd build
+        cmake --build . --config ${{ matrix.build_type }} --parallel
+
+    - name: Run tests
+      run: |
+        cd build
+        ctest --output-on-failure
+
+    - name: Run benchmarks
+      run: |
+        cd build
+        ./bin/bench_xsalsa
+
+  # Debug-only build
+  build-debug:
+    runs-on: ${{ matrix.os }}
+    if: ${{ contains(github.event.head_commit.message, '[debug-only]') || contains(github.ref, 'debug-only') }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        build_type: [Debug]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
+
+    - name: Install dependencies (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        choco install cmake
+
+    - name: Configure with CMake
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
+
+    - name: Build
+      run: |
+        cd build
+        cmake --build . --config ${{ matrix.build_type }} --parallel
+
+    - name: Run tests
+      run: |
+        cd build
+        ctest --output-on-failure
+
+    - name: Run benchmarks
+      run: |
+        cd build
+        ./bin/bench_xsalsa
+
+  # Default build - runs when no specific flags are set
+  build-default:
+    runs-on: ${{ matrix.os }}
+    if: ${{ !contains(github.event.head_commit.message, '[full-build]') && !contains(github.event.head_commit.message, '[windows-only]') && !contains(github.event.head_commit.message, '[debug-only]') && !contains(github.ref, 'full-build') && !contains(github.ref, 'windows-only') && !contains(github.ref, 'debug-only') && github.event_name != 'release' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        build_type: [Debug]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
+
+    - name: Install dependencies (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        choco install cmake
+
+    - name: Configure with CMake
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON
+
+    - name: Build
+      run: |
+        cd build
+        cmake --build . --config ${{ matrix.build_type }} --parallel
+
+    - name: Run tests
+      run: |
+        cd build
+        ctest --output-on-failure
+
+    - name: Run benchmarks
+      run: |
+        cd build
+        ./bin/bench_xsalsa
+
   build-static-lib:
     runs-on: ubuntu-latest
-    needs: build-and-test
+    needs: [build-full, build-windows, build-debug, build-default]
+    if: always() && (needs.build-full.result == 'success' || needs.build-windows.result == 'success' || needs.build-debug.result == 'success' || needs.build-default.result == 'success')
 
     steps:
     - name: Checkout code
@@ -97,7 +227,8 @@ jobs:
 
   build-shared-lib:
     runs-on: ubuntu-latest
-    needs: build-and-test
+    needs: [build-full, build-windows, build-debug, build-default]
+    if: always() && (needs.build-full.result == 'success' || needs.build-windows.result == 'success' || needs.build-debug.result == 'success' || needs.build-default.result == 'success')
 
     steps:
     - name: Checkout code
@@ -129,7 +260,8 @@ jobs:
 
   cross-compile:
     runs-on: ubuntu-latest
-    needs: build-and-test
+    needs: [build-full, build-windows, build-debug, build-default]
+    if: always() && (needs.build-full.result == 'success' || needs.build-windows.result == 'success' || needs.build-debug.result == 'success' || needs.build-default.result == 'success')
 
     steps:
     - name: Checkout code
