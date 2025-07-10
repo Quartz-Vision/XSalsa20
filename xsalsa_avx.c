@@ -83,7 +83,7 @@
 static const char * const constants = "expand 32-byte k";
 
 /* Internal function: XSalsa20 doubleround with AVX (no final addition as in Salsa20) */
-static void s_xsalsa20_doubleround_avx(ulong32 *x, int rounds)
+inline void s_xsalsa20_doubleround_avx(ulong32 *x, int rounds)
 {
    int i;
 
@@ -129,13 +129,12 @@ static void s_salsa20_block_avx(unsigned char *output, const ulong32 *input, int
 }
 
 /* Internal function: Zero memory */
-static void zeromem(volatile void *out, size_t outlen)
+inline void zeromem(volatile void *out, size_t outlen)
 {
    volatile unsigned char *x = (volatile unsigned char *)out;
    while (outlen--) *x++ = 0;
 }
 
-/* Internal function: Minimum macro */
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 /* AVX vectorized quarter round - processes 4 blocks in parallel */

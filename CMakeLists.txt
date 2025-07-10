@@ -53,8 +53,12 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
 endif()
 
 # Add AVX support only if AVX implementation is enabled and on x86
-if(IMPL_AVX AND XSALSA_ARCH_X86 AND NOT MSVC)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx")
+if(IMPL_AVX AND XSALSA_ARCH_X86)
+    if(MSVC)
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /arch:AVX")
+    else()
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx")
+    endif()
 endif()
 
 # Add preprocessor definitions for implementation selection
@@ -78,7 +82,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # Build source list based on enabled implementations
-set(XSALSA20_SOURCES xsalsa_cpu.c xsalsa_runtime.c)
+set(XSALSA20_SOURCES xsalsa_impl_check.c xsalsa_runtime.c)
 set(XSALSA20_HEADERS xsalsa.h)
 
 if(IMPL_SCALAR)

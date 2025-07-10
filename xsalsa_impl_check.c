@@ -5,6 +5,32 @@
 static int impl_selected = -1;  /* -1 = not checked */
 
 #ifdef XSALSA_ARCH_X86
+
+#ifdef _WIN32
+#include <intrin.h>
+
+/**
+ * Check if CPU supports AVX
+ * @return 1 if AVX is supported, 0 otherwise
+ */
+static int check_avx_support(void)
+{
+    int cpu_has_avx = -1;
+    int cpu_info[4];
+    
+    /* Check if CPUID supports leaf 1 */
+    __cpuid(cpu_info, 1);
+    
+    /* Check for AVX support (bit 28 in ecx) */
+    if (cpu_info[2] & (1 << 28)) {
+        cpu_has_avx = 1;
+    } else {
+        cpu_has_avx = 0;
+    }
+    
+    return cpu_has_avx;
+}
+#else
 #include <cpuid.h>
 
 /**
@@ -31,7 +57,14 @@ static int check_avx_support(void)
     
     return cpu_has_avx;
 }
-#endif
+#endif /* _WIN32 */
+
+#else
+static int check_avx_support(void)
+{
+    return 0;
+}
+#endif /* XSALSA_ARCH_X86 */
 
 /**
  * Get the best available implementation
