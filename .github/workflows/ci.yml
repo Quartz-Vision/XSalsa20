@@ -37,16 +37,16 @@ jobs:
         fi
       shell: bash
 
-    - name: Configure and build
+    - name: Build for testing
       run: |
-        mkdir build
-        cd build
-        cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=OFF -DBUILD_STATIC=ON -DBUILD_SHARED=ON
+        mkdir build-test
+        cd build-test
+        cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=OFF
         cmake --build . --config ${{ matrix.build_type }} --parallel
 
     - name: Run tests
       run: |
-        cd build
+        cd build-test
         if [ "$RUNNER_OS" = "Windows" ]; then
           ctest -C ${{ matrix.build_type }} --output-on-failure
         else
@@ -54,29 +54,33 @@ jobs:
         fi
       shell: bash
 
-    - name: Package static library
+    - name: Build and pack static library
       run: |
-        cd build
-        make DESTDIR=./install install
+        cd build-static
+        cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF -DBUILD_STATIC=ON -DBUILD_SHARED=OFF
+        cmake --build . --config ${{ matrix.build_type }} --parallel
+        cmake --install . --prefix ./install
         tar -czf xsalsa20-static-${{ matrix.arch }}.tar.gz -C install .
 
-    - name: Package shared library
+    - name: Build and pack shared library
       run: |
-        cd build
-        make DESTDIR=./install install
+        cd build-shared
+        cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF -DBUILD_STATIC=OFF -DBUILD_SHARED=ON
+        cmake --build . --config ${{ matrix.build_type }} --parallel
+        cmake --install . --prefix ./install
         tar -czf xsalsa20-shared-${{ matrix.arch }}.tar.gz -C install .
 
     - name: Upload static artifact
       uses: actions/upload-artifact@v4
       with:
         name: xsalsa20-static-${{ matrix.arch }}
-        path: build/xsalsa20-static-${{ matrix.arch }}.tar.gz
+        path: build-static/xsalsa20-static-${{ matrix.arch }}.tar.gz
 
     - name: Upload shared artifact
       uses: actions/upload-artifact@v4
       with:
         name: xsalsa20-shared-${{ matrix.arch }}
-        path: build/xsalsa20-shared-${{ matrix.arch }}.tar.gz
+        path: build-shared/xsalsa20-shared-${{ matrix.arch }}.tar.gz
 
   release:
     runs-on: ubuntu-latest
